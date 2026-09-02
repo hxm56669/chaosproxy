@@ -8,6 +8,7 @@
 #include <sys/socket.h>
 
 #include <cerrno>
+#include <chrono>
 #include <system_error>
 #include <utility>
 
@@ -15,6 +16,7 @@ namespace {
 
 using namespace chaosproxy;
 using namespace chaosproxy::test;
+using namespace std::chrono_literals;
 
 UniqueFd MakeGenerationTestListener(sockaddr_in& address) {
     UniqueFd listen_fd(::socket(
@@ -107,6 +109,54 @@ TEST(ConnectionGenerationTest, ReusedIdGetsNewGeneration) {
     EXPECT_EQ(second.token.id, first.token.id);
     EXPECT_NE(second.token.generation, first.token.generation);
     EXPECT_EQ(manager.Find(first.token), nullptr);
+    EXPECT_NE(manager.Find(second.token), nullptr);
+}
+
+TEST(ConnectionGenerationTest, StaleTimerCannotCloseReusedConnection) {
+    sockaddr_in upstream_address{};
+    UniqueFd upstream_listener =
+        MakeGenerationTestListener(upstream_address);
+
+    EventLoop loop;
+    ConnectionManager manager(
+        loop,
+        reinterpret_cast<const sockaddr*>(&upstream_address),
+        sizeof(upstream_address));
+
+    auto first_pair = MakeSocketPair();
+    const CreateConnectionResult first =
+        manager.Create(std::move(first_pair.second));
+    ASSERT_TRUE(first.Ok());
+    UniqueFd first_upstream =
+        AcceptGenerationPeer(loop, upstream_listener.Get());
+    ASSERT_TRUE(first_upstream.IsValid());
+
+    ASSERT_TRUE(manager.Close(first.token));
+
+    auto second_pair = MakeSocketPair();
+    const CreateConnectionResult second =
+        manager.Create(std::move(second_pair.second));
+    ASSERT_TRUE(second.Ok());
+    UniqueFd second_upstream =
+        AcceptGenerationPeer(loop, upstream_listener.Get());
+    ASSERT_TRUE(second_upstream.IsValid());
+
+    ASSERT_EQ(second.token.id, first.token.id);
+    ASSERT_NE(second.token.generation, first.token.generation);
+
+    bool stale_timer_ran = false;
+    (void)loop.ScheduleAfter(
+        5ms,
+        [&manager, stale = first.token, &stale_timer_ran] {
+            stale_timer_ran = true;
+            EXPECT_FALSE(manager.Close(stale));
+        });
+
+    EXPECT_TRUE(PumpUntil(loop, [&] {
+        return stale_timer_ran;
+    }, 100, 10));
+
+    EXPECT_EQ(manager.Size(), 1U);
     EXPECT_NE(manager.Find(second.token), nullptr);
 }
 

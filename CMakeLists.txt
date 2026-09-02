@@ -19,6 +19,7 @@ add_library(chaosproxy_core
     src/socket_ops.cpp
     src/event_loop.cpp
     src/listener.cpp
+    src/timer_queue.cpp
     src/buffer.cpp
     src/endpoint.cpp
     src/connection.cpp
@@ -58,6 +59,8 @@ if(BUILD_TESTING)
         tests/unit/unique_fd_test.cpp
         tests/unit/socket_ops_test.cpp
         tests/unit/event_loop_test.cpp
+        tests/unit/timer_queue_test.cpp
+        tests/unit/event_loop_timer_test.cpp
         tests/unit/buffer_test.cpp
         tests/unit/connection_test.cpp
         tests/integration/listener_event_loop_test.cpp
