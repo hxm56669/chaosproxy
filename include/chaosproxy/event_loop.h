@@ -1,5 +1,7 @@
 #pragma once
 
+#include "chaosproxy/clock.h"
+#include "chaosproxy/timer_queue.h"
 #include "chaosproxy/unique_fd.h"
 
 #include <sys/epoll.h>
@@ -31,6 +33,16 @@ public:
     [[nodiscard]] int Remove(EventToken token) noexcept;
     [[nodiscard]] bool Contains(EventToken token) const noexcept;
 
+    [[nodiscard]] TimerId ScheduleAt(
+        TimePoint deadline,
+        TimerCallback callback);
+
+    [[nodiscard]] TimerId ScheduleAfter(
+        Duration delay,
+        TimerCallback callback);
+
+    [[nodiscard]] bool CancelTimer(TimerId id);
+
     int RunOnce(int timeout_ms);
     void Run();
     void Stop() noexcept;
@@ -44,11 +56,22 @@ private:
 
     [[nodiscard]] EventToken NextToken();
 
+    void HandleTimerEvent(
+        EventToken token,
+        std::uint32_t events);
+
+    void DrainTimerFd();
+    void RearmTimerFd();
+
     UniqueFd epoll_fd_;
     std::vector<epoll_event> ready_events_;
     std::unordered_map<EventToken, Registration> registrations_;
     EventToken next_token_{1};
     bool stop_requested_{false};
+
+    TimerQueue timer_queue_;
+    UniqueFd timer_fd_;
+    EventToken timer_token_{0};
 };
 
 }  // namespace chaosproxy

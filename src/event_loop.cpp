@@ -1,12 +1,21 @@
 #include "chaosproxy/event_loop.h"
 
+#include <sys/timerfd.h>
+#include <unistd.h>
+
 #include <cerrno>
+#include <chrono>
 #include <limits>
 #include <stdexcept>
 #include <system_error>
 #include <utility>
 
 namespace chaosproxy {
+namespace {
+
+constexpr std::int64_t kNanosecondsPerSecond = 1000000000LL;
+
+}  // namespace
 
 EventLoop::EventLoop(std::size_t max_events) {
     if (max_events == 0 ||
@@ -25,6 +34,24 @@ EventLoop::EventLoop(std::size_t max_events) {
 
     epoll_fd_.Reset(raw_epoll_fd);
     ready_events_.resize(max_events);
+
+    const int raw_timer_fd = ::timerfd_create(
+        CLOCK_MONOTONIC,
+        TFD_NONBLOCK | TFD_CLOEXEC);
+    if (raw_timer_fd < 0) {
+        throw std::system_error(
+            errno,
+            std::generic_category(),
+            "timerfd_create");
+    }
+    timer_fd_.Reset(raw_timer_fd);
+
+    timer_token_ = Add(
+        timer_fd_.Get(),
+        EPOLLIN,
+        [this](EventToken token, std::uint32_t events) {
+            HandleTimerEvent(token, events);
+        });
 }
 
 EventToken EventLoop::NextToken() {
@@ -123,6 +150,38 @@ bool EventLoop::Contains(EventToken token) const noexcept {
     return registrations_.find(token) != registrations_.end();
 }
 
+TimerId EventLoop::ScheduleAt(
+    TimePoint deadline,
+    TimerCallback callback) {
+    const TimerId id = timer_queue_.Schedule(
+        deadline,
+        std::move(callback));
+    RearmTimerFd();
+    return id;
+}
+
+TimerId EventLoop::ScheduleAfter(
+    Duration delay,
+    TimerCallback callback) {
+    if (delay < Duration::zero()) {
+        delay = Duration::zero();
+    }
+
+    return ScheduleAt(
+        MonotonicClock::now() + delay,
+        std::move(callback));
+}
+
+bool EventLoop::CancelTimer(TimerId id) {
+    const bool cancelled = timer_queue_.Cancel(id);
+    if (!cancelled) {
+        return false;
+    }
+
+    RearmTimerFd();
+    return true;
+}
+
 int EventLoop::RunOnce(int timeout_ms) {
     int ready_count = 0;
     do {
@@ -165,6 +224,91 @@ void EventLoop::Run() {
 
 void EventLoop::Stop() noexcept {
     stop_requested_ = true;
+}
+
+void EventLoop::HandleTimerEvent(
+    EventToken token,
+    std::uint32_t events) {
+    if (token != timer_token_) {
+        return;
+    }
+
+    if ((events & EPOLLIN) == 0U) {
+        return;
+    }
+
+    DrainTimerFd();
+    (void)timer_queue_.RunExpired(MonotonicClock::now());
+    RearmTimerFd();
+}
+
+void EventLoop::DrainTimerFd() {
+    for (;;) {
+        std::uint64_t expirations = 0;
+        const ssize_t result = ::read(
+            timer_fd_.Get(),
+            &expirations,
+            sizeof(expirations));
+
+        if (result == static_cast<ssize_t>(sizeof(expirations))) {
+            continue;
+        }
+
+        if (result < 0 && errno == EINTR) {
+            continue;
+        }
+
+        if (result < 0 &&
+            (errno == EAGAIN || errno == EWOULDBLOCK)) {
+            return;
+        }
+
+        if (result < 0) {
+            throw std::system_error(
+                errno,
+                std::generic_category(),
+                "read timerfd");
+        }
+
+        throw std::runtime_error("short read from timerfd");
+    }
+}
+
+void EventLoop::RearmTimerFd() {
+    itimerspec specification{};
+
+    const std::optional<TimePoint> next_deadline =
+        timer_queue_.NextDeadline();
+
+    if (next_deadline.has_value()) {
+        Duration delay = *next_deadline - MonotonicClock::now();
+        if (delay <= Duration::zero()) {
+            delay = std::chrono::nanoseconds(1);
+        }
+
+        auto nanoseconds =
+            std::chrono::duration_cast<std::chrono::nanoseconds>(delay);
+        if (nanoseconds <= std::chrono::nanoseconds::zero()) {
+            nanoseconds = std::chrono::nanoseconds(1);
+        }
+
+        const std::int64_t count = nanoseconds.count();
+        specification.it_value.tv_sec =
+            static_cast<time_t>(count / kNanosecondsPerSecond);
+        specification.it_value.tv_nsec =
+            static_cast<long>(count % kNanosecondsPerSecond);
+    }
+
+    if (::timerfd_settime(
+            timer_fd_.Get(),
+            0,
+            &specification,
+            nullptr) < 0) {
+        throw std::system_error(
+            errno,
+            std::generic_category(),
+            "timerfd_settime");
+    }
 }
 
 }  // namespace chaosproxy
