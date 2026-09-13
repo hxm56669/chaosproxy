@@ -1,0 +1,6 @@
+{
+  "name": "basic-photo-task",
+  "ready_url": "http://127.0.0.1:8080/readyz",
+  "steps": [{"request": {"url": "http://127.0.0.1:8080/livez", "status": 200}}],
+  "finally": []
+}

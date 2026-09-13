@@ -3,9 +3,9 @@
 - 项目：ChaosProxy + PhotoTask
 - 蓝图版本：V2.1
 - 真实仓库/分支：`Z:/project/chaosproxy` / `feature/stage8-toxic-pipeline`
-- 当前 commit：`0b7c668`（M0～M2 已提交并推送）
-- 当前里程碑/组：M2 / A8
-- 状态：M0～M2 已完成，准备交付
+- 当前 commit：见 `git rev-parse HEAD`（M3～M5 已提交并推送）
+- 当前里程碑/组：M5 / E3
+- 状态：M3～M5 已完成；C++ 回归、真实 MariaDB/Redis、Nginx 配置和场景 runner 验证完成
 
 ## 本次唯一行为或不变量
 
@@ -131,7 +131,7 @@ M0 已形成公共基础库、正式 GoogleTest 基线和 CLI 入口；A1/A2/A3 
 
 ## 下一组目标
 
-M3：进入 PhotoTask 真实照片输入、MySQL 任务与本地执行闭环。
+后续进入 F：Kafka 具体接入；M3～M5 不启动 Kafka。
 
 ## 下次必须提供文件
 
@@ -157,3 +157,39 @@ M3：进入 PhotoTask 真实照片输入、MySQL 任务与本地执行闭环。
 - A6：Toxic continuation、latency/jitter、bandwidth、slicer、timeout、limit_data 测试通过，累计 27/27。
 - A7：JSON 配置、ProxyServer 版本应用、控制协议/UDS 测试通过，累计 32/32。
 - A8：TraceWriter 有界队列、drain、代理基准探针和 CLI 配置检查通过，累计 35/35。
+- B0：Drogon 真实 MariaDB 事务提交回调、提交后可见性、Protobuf 生成/解析通过；photo-debug 37/37。
+- B1：领域模型规范化、SHA-256 内容寻址导入、001_core.sql migration、MariaDB 重复导入幂等通过；累计 41/41。
+- B2：任务 fingerprint/idempotency、冲突和 HTTP 202 响应通过。
+- B3：outbox batch claim 将 PENDING_DISPATCH 推进 READY，本地 dispatcher/executor 路径通过。
+- B4：真实 PPM 输入缩略图、元数据、attempt 文件发布和失败 retry 路径通过。
+- B5：lease renew、过期 requeue、owner+epoch CAS 防旧 owner 提交通过。
+- B6：commit unknown 后按原 request key 查询恢复原 task 通过。
+- M3：B0～B6 完成，photo-debug 48/48 全部通过。
+- C1：hiredis 真实 Redis PING/GET/SETEX/DEL 与 DB miss 回源通过。
+- C2：permit、failure threshold、cooldown breaker 通过。
+- C3：Redis 删除失败进入 invalidation pending 队列，恢复后 flush 通过。
+- C4：strong 读绕过缓存，更新后的值赢得 stale read race 通过。
+- M4：C1～C4 完成，photo-debug 52/52 全部通过。
+- D1：photo_runtime 双 API Compose 入口配置和运行入口骨架完成。
+- D2：Nginx upstream 动态解析与路由配置完成；宿主机实际 `nginx -t` 通过。
+- D3：GET 路由最多两次上游尝试，任务写路由 `proxy_next_upstream off`。
+- D4：photo_runtime 实际 HTTP `/livez`、`/readyz`、`/metrics` 响应通过；C++ 测试通过。
+- E1：JSON 场景 runner 只接受 argv 数组，不执行任意 shell 字符串；parse/ready/request/finally 框架完成。
+- E2：commit-unknown 场景配置与 B6 独立查询测试完成；场景标记为 dry-run/skipped，不冒充真实命中。
+- E3：批量报告包含 UTC 时间、seed、git build 和逐场景结果；runner/report Python 语法检查与 dry-run 通过。
+- M5：D1～D4、E1～E3 完成；photo-debug 53/53 全部通过。
+
+## M3～M5 验证证据
+
+- Ubuntu：MariaDB 11.8、Redis 8.0 已启动；MariaDB `phototask_test` 与 Redis PING 可用。
+- Ubuntu：`cmake --preset photo-debug && cmake --build --preset photo-debug && ctest --preset photo-debug --output-on-failure` 最终通过 53/53。
+- Ubuntu：`cmake --preset proxy-debug && cmake --build --preset proxy-debug && ctest --preset proxy-debug --output-on-failure` 回归通过 35/35。
+- Ubuntu：`photo_runtime --health` 输出 `ok`；真实监听后 curl `/livez`、`/readyz`、`/metrics` 均成功。
+- Ubuntu：Nginx `-t -c deploy/nginx.conf` syntax ok；Docker 未安装，因此 Compose 容器联调未执行。
+- Ubuntu：`python3 -m py_compile tools/scenarios/runner.py tools/scenarios/report.py`、两个场景 dry-run 和批量报告生成成功；dry-run 结果按设计为 `skipped`。
+
+## M3～M5 已知边界
+
+- PhotoTask 当前图像处理器为受预算约束的 PPM P6 最小实现；JPG/PNG 已作为导入格式保留，但尚未接入解码缩略图路径。
+- `TaskRepository` 是确定性内存端口实现；B0/B1 已用真实 Drogon/MariaDB 验证连接、事务和照片登记，完整任务 SQL CAS 接线留给后续持久化收口。
+- Compose 文件已静态检查，远程没有 Docker，未宣称双实例容器联调通过。

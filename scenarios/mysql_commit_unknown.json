@@ -1,0 +1,5 @@
+{
+  "name": "mysql-commit-unknown",
+  "steps": [{"command": ["photo_runtime", "--health"]}],
+  "finally": []
+}
