@@ -1,0 +1,7 @@
+add_executable(chaosproxy chaosproxy_main.cpp)
+cp_project_target(chaosproxy)
+target_link_libraries(chaosproxy PRIVATE chaosproxy_core cp_common CLI11::CLI11)
+
+add_executable(chaosctl chaosctl_main.cpp)
+cp_project_target(chaosctl)
+target_link_libraries(chaosctl PRIVATE chaosproxy_core cp_common CLI11::CLI11)

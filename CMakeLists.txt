@@ -1,96 +1,33 @@
-cmake_minimum_required(VERSION 3.16)
+cmake_minimum_required(VERSION 3.25)
 
-project(
-    ChaosProxy
-    VERSION 0.1.0
-    LANGUAGES CXX
-)
-
-set(CMAKE_CXX_STANDARD 17)
-set(CMAKE_CXX_STANDARD_REQUIRED ON)
-set(CMAKE_CXX_EXTENSIONS OFF)
+project(chaosproxy_phototask VERSION 0.1.0 LANGUAGES C CXX)
 
 if(NOT CMAKE_SYSTEM_NAME STREQUAL "Linux")
-    message(FATAL_ERROR "ChaosProxy M2/M3 requires Linux (epoll/accept4)")
+  message(FATAL_ERROR "This blueprint targets Linux")
 endif()
 
-add_library(chaosproxy_core
-    src/app.cpp
-    src/socket_ops.cpp
-    src/event_loop.cpp
-    src/listener.cpp
-    src/timer_queue.cpp
-    src/buffer.cpp
-    src/endpoint.cpp
-    src/connection.cpp
-    src/connection_manager.cpp
-)
+set(CMAKE_CXX_EXTENSIONS OFF)
+set(CMAKE_CXX_STANDARD 20)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-target_include_directories(chaosproxy_core
-    PUBLIC
-        ${PROJECT_SOURCE_DIR}/include
-)
+option(CP_BUILD_PHOTO "Build PhotoTask programs" OFF)
+option(CP_BUILD_KAFKA "Build Kafka transport" OFF)
+option(CP_WARNINGS_AS_ERRORS "Treat project warnings as errors" OFF)
+set(CP_SANITIZER "none" CACHE STRING "none/address-undefined/thread")
 
-target_compile_definitions(chaosproxy_core PRIVATE _GNU_SOURCE)
-target_compile_options(
-    chaosproxy_core
-    PRIVATE
-        -Wall
-        -Wextra
-        -Wpedantic
-)
+if(CP_BUILD_KAFKA AND NOT CP_BUILD_PHOTO)
+  message(FATAL_ERROR "CP_BUILD_KAFKA requires CP_BUILD_PHOTO")
+endif()
 
-add_executable(chaosproxy
-    src/main.cpp
-)
-
-target_link_libraries(chaosproxy
-    PRIVATE
-        chaosproxy_core
-)
-
+include(cmake/project_options.cmake)
 include(CTest)
+find_package(Threads REQUIRED)
+find_package(CLI11 CONFIG REQUIRED)
+find_package(jsoncpp CONFIG REQUIRED)
+find_package(spdlog CONFIG REQUIRED)
 
+add_subdirectory(src)
+add_subdirectory(apps)
 if(BUILD_TESTING)
-    find_package(GTest REQUIRED)
-
-    add_executable(chaosproxy_tests
-        tests/unit/app_test.cpp
-        tests/unit/unique_fd_test.cpp
-        tests/unit/socket_ops_test.cpp
-        tests/unit/event_loop_test.cpp
-        tests/unit/timer_queue_test.cpp
-        tests/unit/event_loop_timer_test.cpp
-        tests/unit/buffer_test.cpp
-        tests/unit/connection_test.cpp
-        tests/integration/listener_event_loop_test.cpp
-        tests/integration/multi_connection_proxy_test.cpp
-        tests/integration/backpressure_test.cpp
-        tests/integration/half_close_test.cpp
-        tests/integration/connection_error_test.cpp
-        tests/integration/connection_generation_test.cpp
-    )
-
-    target_include_directories(chaosproxy_tests
-        PRIVATE
-            ${PROJECT_SOURCE_DIR}/tests
-    )
-
-    target_compile_definitions(chaosproxy_tests PRIVATE _GNU_SOURCE)
-    target_compile_options(
-        chaosproxy_tests
-        PRIVATE
-            -Wall
-            -Wextra
-            -Wpedantic
-    )
-
-    target_link_libraries(chaosproxy_tests
-        PRIVATE
-            chaosproxy_core
-            GTest::gtest_main
-    )
-
-    include(GoogleTest)
-    gtest_discover_tests(chaosproxy_tests)
+  add_subdirectory(tests)
 endif()

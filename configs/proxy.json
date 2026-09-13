@@ -1,0 +1,12 @@
+{
+  "policy_version": 1,
+  "max_connections": 1024,
+  "listeners": [
+    {
+      "listen_host": "127.0.0.1",
+      "listen_port": 19080,
+      "upstream_host": "127.0.0.1",
+      "upstream_port": 19081
+    }
+  ]
+}

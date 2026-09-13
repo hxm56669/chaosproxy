@@ -1,9 +1,26 @@
+# CMake and vcpkg build outputs
 /build/
-/build-*/
-/out/
+/cmake-build-*/
+/vcpkg_installed/
+/third_party/vcpkg/buildtrees/
+/third_party/vcpkg/packages/
+/third_party/vcpkg/downloads/
+/third_party/vcpkg/installed/
+
+# Runtime data and local reports
+/runs/*
+!/runs/.gitkeep
+
+# Tool and editor noise
 /.cache/
 /.idea/
 /.vscode/
-*.o
-*.obj
-*.exe
+compile_commands.json
+
+# Python local environments and caches
+**/__pycache__/
+.venv/
+
+# OS files
+.DS_Store
+Thumbs.db
