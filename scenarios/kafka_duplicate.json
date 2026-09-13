@@ -1,0 +1,8 @@
+{
+  "schema_version": 1,
+  "scenario_id": "kafka_duplicate_event",
+  "seed": 42,
+  "steps": [],
+  "expected": "skipped_without_broker",
+  "reason": "requires independent Kafka broker observation"
+}
