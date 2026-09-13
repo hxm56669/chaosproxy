@@ -4,8 +4,8 @@
 - 蓝图版本：V2.1
 - 真实仓库/分支：`Z:/project/chaosproxy` / `feature/stage8-toxic-pipeline`
 - 当前 commit：见 `git rev-parse HEAD`（M3～M5 已提交并推送）
-- 当前里程碑/组：M5 / E3
-- 状态：M3～M5 已完成；C++ 回归、真实 MariaDB/Redis、Nginx 配置和场景 runner 验证完成
+- 当前里程碑/组：M6 / F6
+- 状态：M3～M6 已完成；Kafka 客户端边界与持久接入逻辑已通过确定性测试，真实 broker 实验按环境限制未宣称通过
 
 ## 本次唯一行为或不变量
 
@@ -131,7 +131,7 @@ M0 已形成公共基础库、正式 GoogleTest 基线和 CLI 入口；A1/A2/A3 
 
 ## 下一组目标
 
-后续进入 F：Kafka 具体接入；M3～M5 不启动 Kafka。
+后续进入 G：实测性能、可重复交付和面试证据。
 
 ## 下次必须提供文件
 
@@ -178,6 +178,20 @@ M0 已形成公共基础库、正式 GoogleTest 基线和 CLI 入口；A1/A2/A3 
 - E2：commit-unknown 场景配置与 B6 独立查询测试完成；场景标记为 dry-run/skipped，不冒充真实命中。
 - E3：批量报告包含 UTC 时间、seed、git build 和逐场景结果；runner/report Python 语法检查与 dry-run 通过。
 - M5：D1～D4、E1～E3 完成；photo-debug 53/53 全部通过。
+- F1：Kafka broker route 校验、固定 librdkafka 2.14.2 客户端依赖和事件通道边界完成。
+- F2：KafkaPublisher produce/poll 完成，测试明确区分本地入队和 broker delivery。
+- F3：InboxLedger 幂等 admission 与 contiguous offset 提交完成。
+- F4：assignment epoch、revoke、有限队列和坏消息 quarantine 完成。
+- F5：重复 event_id 只保留一个逻辑 inbox 记录，重放不会重复接入。
+- F6：消费积压队列有界，Kafka 路由/单 broker 客户端配置入口完成。
+- M6：F1～F6 完成，kafka-debug 59/59 全部通过；无 Kafka broker，K01～K08 真实场景未执行。
+
+## M6 验证证据
+
+- Ubuntu：`cmake --preset kafka-debug` 成功，并安装固定 librdkafka 2.14.2、lz4、zstd 依赖。
+- Ubuntu：`cmake --build --preset kafka-debug && ctest --preset kafka-debug --output-on-failure` 最终通过 59/59。
+- Kafka 测试覆盖：route 校验、producer 入队/交付语义、inbox 去重、连续 offset、assignment epoch、revoke、quarantine 和有界 backlog。
+- 未执行：Kafka broker metadata、真实 produce delivery、ACK 丢失、rebalance 与多 broker quorum；远程 `docker`/Kafka CLI 不存在。
 
 ## M3～M5 验证证据
 

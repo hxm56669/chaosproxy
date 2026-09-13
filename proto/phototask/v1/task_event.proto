@@ -8,4 +8,6 @@ message TaskEvent {
   string fingerprint = 3;
   string state = 4;
   int64 sequence = 5;
+  string event_id = 6;
+  uint64 generation = 7;
 }
