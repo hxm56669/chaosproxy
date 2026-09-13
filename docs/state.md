@@ -4,8 +4,8 @@
 - 蓝图版本：V2.1
 - 真实仓库/分支：`Z:/project/chaosproxy` / `feature/stage8-toxic-pipeline`
 - 当前 commit：见 `git rev-parse HEAD`（M3～M5 已提交并推送）
-- 当前里程碑/组：M6 / F6
-- 状态：M3～M6 已完成；Kafka 客户端边界与持久接入逻辑已通过确定性测试，真实 broker 实验按环境限制未宣称通过
+- 当前里程碑/组：M7 / G1
+- 状态：M3～M6 已完成，M7/G1 基线已生成；Kafka broker 实验仍按环境限制未宣称通过
 
 ## 本次唯一行为或不变量
 
@@ -131,7 +131,7 @@ M0 已形成公共基础库、正式 GoogleTest 基线和 CLI 入口；A1/A2/A3 
 
 ## 下一组目标
 
-后续进入 G：实测性能、可重复交付和面试证据。
+下一步：G2 profiling 入口和变量隔离记录。
 
 ## 下次必须提供文件
 
@@ -192,6 +192,7 @@ M0 已形成公共基础库、正式 GoogleTest 基线和 CLI 入口；A1/A2/A3 
 - Ubuntu：`cmake --build --preset kafka-debug && ctest --preset kafka-debug --output-on-failure` 最终通过 59/59。
 - Kafka 测试覆盖：route 校验、producer 入队/交付语义、inbox 去重、连续 offset、assignment epoch、revoke、quarantine 和有界 backlog。
 - 未执行：Kafka broker metadata、真实 produce delivery、ACK 丢失、rebalance 与多 broker quorum；远程 `docker`/Kafka CLI 不存在。
+- G1：`benchmarks/run_m7.py` 实际执行 photo runtime health 与 kafka-debug 全量 ctest，生成 `/tmp/phototask-m7-baseline.json`；记录真实 seed、git、主机和命令级耗时，不推导吞吐。
 
 ## M3～M5 验证证据
 
